@@ -104,3 +104,7 @@ Agent 在执行 `git commit` 前必须：
 - **改动验证**：每次改动后 `cargo check` 验证编译，`cargo test` 验证测试，不要跳过。
 - **不引入重依赖**：如 `jsonschema` crate 会拉一大堆传递依赖，运行时校验改用轻量手写 + 静态 schema 供外部工具。
 - **commit 前核对暂存区**：按本文件"脱敏政策"第 3 条执行。
+
+### E. 待决策的设计提案
+
+- **双窗口渲染架构**：为 UP 主优化，游戏画面正方形独立窗口 + UI 另一窗口。方案详见 `docs/dual-window-rendering.md`，**尚未实现**，由人类决策后 Agent 执行。
