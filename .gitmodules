@@ -1,3 +1,4 @@
 [submodule "assets"]
 	path = assets
 	url = git@github.com:k4m7v2pz/assets-endless-corridor.git
+	branch = dev
