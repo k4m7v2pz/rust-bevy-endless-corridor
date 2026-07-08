@@ -3,3 +3,7 @@
 Cargo.lock
 .DS_Store
 *.log
+
+# Reference repositories (cloned via git clone)
+reference/*
+!reference/README.md
