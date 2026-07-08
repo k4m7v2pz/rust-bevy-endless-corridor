@@ -51,6 +51,9 @@ pub struct GameSnapshot {
     /// 最近检查点（X, Y）
     #[serde(default)]
     pub last_checkpoint: Option<[f32; 2]>,
+    /// 已揭示的 tile 坐标（Fog of War 探索记忆）
+    #[serde(default)]
+    pub revealed_tiles: Vec<[i32; 2]>,
 }
 
 /// 怪物状态快照
@@ -214,6 +217,7 @@ pub fn create_snapshot_from_state(
     death_count: u32,
     last_death_reason: &str,
     last_checkpoint: Option<Vec2>,
+    revealed_tiles: &[[i32; 2]],
 ) -> GameSnapshot {
     GameSnapshot {
         player_x: player_pos.x,
@@ -230,5 +234,6 @@ pub fn create_snapshot_from_state(
         death_count,
         last_death_reason: last_death_reason.to_string(),
         last_checkpoint: last_checkpoint.map(|p| [p.x, p.y]),
+        revealed_tiles: revealed_tiles.to_vec(),
     }
 }

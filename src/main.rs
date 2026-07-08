@@ -36,6 +36,7 @@ mod trap;
 mod debug;
 mod narrative;
 mod notification;
+mod fog_of_war;
 
 use tile_map::GameMap;
 use constants::*;
@@ -154,6 +155,7 @@ fn main() {
         .add_plugins(debug::DebugPlugin)
         .add_plugins(narrative::NarrativePlugin)
         .add_plugins(notification::NotificationPlugin)
+        .add_plugins(fog_of_war::FogOfWarPlugin)
         // --- 启动 ---
         .add_systems(Startup, setup_camera)
         // --- 开始界面 ---
@@ -216,6 +218,16 @@ fn main() {
                 .run_if(in_state(GameState::Playing)),
         )
         .add_systems(
+            Update,
+            (
+                fog_of_war::fog_reveal_around_player,
+                fog_of_war::fog_spawn_unrevealed,
+                fog_of_war::fog_despawn_revealed,
+            )
+                .chain()
+                .run_if(in_state(GameState::Playing)),
+        )
+        .add_systems(
             OnExit(GameState::Playing),
             (
                 game_ui::despawn_screen::<PlayerTag>,
@@ -228,6 +240,7 @@ fn main() {
                 game_ui::despawn_screen::<tile_map::MapTile>,
                 game_ui::despawn_screen::<trap::TrapTag>,
                 game_ui::despawn_screen::<notification::NotificationRoot>,
+                fog_of_war::despawn_all_fog,
             ),
         )
         // --- 游戏结束 ---
@@ -292,6 +305,7 @@ fn apply_pending_save_load(
     mut timer: ResMut<GameTimer>,
     mut player_q: Query<&mut Transform, With<PlayerTag>>,
     mut monster_q: Query<(&mut Transform, &mut monster::Monster)>,
+    mut revealed: ResMut<fog_of_war::RevealedTiles>,
 ) {
     let Some(save_id) = pending.save_id.take() else { return };
     
@@ -316,6 +330,9 @@ fn apply_pending_save_load(
                 player_trans.translation.y = snap.player_y;
             }
             
+            // 恢复 Fog of War 探索记忆
+            *revealed = fog_of_war::RevealedTiles::from_vec(snap.revealed_tiles.clone());
+
             // 恢复怪物位置（尽量匹配数量）
             let mut monster_iter = monster_q.iter_mut();
             for monster_snap in &snap.monsters {
@@ -345,6 +362,7 @@ fn handle_save_input(
     timer: Res<GameTimer>,
     player_q: Query<&Transform, With<PlayerTag>>,
     monster_q: Query<(&Transform, &monster::Monster)>,
+    revealed: Res<fog_of_war::RevealedTiles>,
 ) {
     // F5 保存
     if keyboard.just_pressed(KeyCode::F5) {
@@ -370,6 +388,7 @@ fn handle_save_input(
             world_state.death_count,
             &world_state.last_death_reason,
             world_state.last_checkpoint,
+            &revealed.to_vec()[..],
         );
         
         let manager = save::SaveManager::new("saves".into());
