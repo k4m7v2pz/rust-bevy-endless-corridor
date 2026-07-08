@@ -35,6 +35,7 @@ mod sound_cue;
 mod trap;
 mod debug;
 mod narrative;
+mod notification;
 
 use tile_map::GameMap;
 use constants::*;
@@ -152,6 +153,7 @@ fn main() {
         .add_plugins(trap::TrapPlugin)
         .add_plugins(debug::DebugPlugin)
         .add_plugins(narrative::NarrativePlugin)
+        .add_plugins(notification::NotificationPlugin)
         // --- 启动 ---
         .add_systems(Startup, setup_camera)
         // --- 开始界面 ---
@@ -184,6 +186,7 @@ fn main() {
                 darkness::setup_darkness_meshes,
                 perception::setup_hallucination_assets,
                 game_ui::spawn_hud,
+                notification::setup_notification_ui,
                 apply_pending_save_load,
             )
                 .chain(),
@@ -224,6 +227,7 @@ fn main() {
                 game_ui::despawn_screen::<darkness::DarknessOverlayTag>,
                 game_ui::despawn_screen::<tile_map::MapTile>,
                 game_ui::despawn_screen::<trap::TrapTag>,
+                game_ui::despawn_screen::<notification::NotificationRoot>,
             ),
         )
         // --- 游戏结束 ---
