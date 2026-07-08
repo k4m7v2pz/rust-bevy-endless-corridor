@@ -1,6 +1,7 @@
 //! 物品: 钥匙 (可收集) / 出口门 / 躲藏点
 
 use bevy::prelude::*;
+use bevy_state::state::NextState;
 
 use crate::{GameMap, GameState, HidingSpotTag, ItemTag, WorldState, player::Player, PlayerTag};
 use crate::constants::*;

@@ -1,0 +1,136 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://endless-corridor/schemas/script.schema.json",
+  "title": "Endless Corridor Script",
+  "description": "AI 友好剧本格式：JSON + 2 空格缩进 + 本 Schema 结构校验",
+  "type": "object",
+  "required": ["meta", "timeline"],
+  "additionalProperties": false,
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": ["id"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "剧本唯一标识（snake_case）"
+        },
+        "title": {
+          "type": "string",
+          "description": "人类可读标题"
+        },
+        "author": {
+          "type": "string",
+          "description": "作者署名"
+        },
+        "schema_version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "default": "1.0.0",
+          "description": "目标 Schema 版本（语义化）"
+        }
+      }
+    },
+    "timeline": {
+      "type": "array",
+      "minItems": 1,
+      "description": "按播放顺序排列的事件时间轴",
+      "items": {
+        "$ref": "#/$defs/ScriptEvent"
+      }
+    }
+  },
+  "$defs": {
+    "ScriptEvent": {
+      "type": "object",
+      "required": ["id"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "事件唯一标识（snake_case）"
+        },
+        "trigger": {
+          "type": "string",
+          "default": "auto",
+          "description": "触发方式：auto（自动推进）/ on_enter_room / on_interact / custom"
+        },
+        "narration": {
+          "$ref": "#/$defs/TrackContent",
+          "description": "旁白轨道"
+        },
+        "dialogue": {
+          "$ref": "#/$defs/TrackContent",
+          "description": "对话轨道"
+        },
+        "inner": {
+          "$ref": "#/$defs/TrackContent",
+          "description": "内心独白轨道"
+        },
+        "metadata": {
+          "$ref": "#/$defs/EventMetadata",
+          "description": "AI 友好元数据"
+        }
+      }
+    },
+    "TrackContent": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "content": {
+          "type": "string",
+          "default": "",
+          "description": "轨道文本内容"
+        },
+        "preset": {
+          "type": "string",
+          "default": "default",
+          "description": "视觉预设名（对应编辑器样式）"
+        },
+        "position": {
+          "type": "string",
+          "default": "center",
+          "enum": ["center", "top", "bottom", "left", "right"],
+          "description": "屏幕位置"
+        },
+        "character": {
+          "type": "string",
+          "default": "",
+          "description": "说话角色名（对话轨道用）"
+        },
+        "emotion": {
+          "type": "string",
+          "default": "neutral",
+          "description": "角色情绪标签"
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 1.0,
+          "description": "不透明度（内心独白常用 <1）"
+        }
+      }
+    },
+    "EventMetadata": {
+      "type": "object",
+      "description": "AI 友好元数据：ai_context 给外部 AI 工具的真实状态提示，creator_hints 给协作者的设计意图",
+      "additionalProperties": true,
+      "properties": {
+        "ai_context": {
+          "type": ["object", "null"],
+          "description": "AI 上下文（不展示给玩家），如 {\"true_state\": \"hidden\"}",
+          "additionalProperties": true
+        },
+        "creator_hints": {
+          "type": ["object", "null"],
+          "description": "创作者提示，如 {\"intent\": \"atmosphere\", \"design_note\": \"...\"}",
+          "additionalProperties": true
+        }
+      }
+    }
+  }
+}

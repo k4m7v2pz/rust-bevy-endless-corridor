@@ -85,6 +85,15 @@ pub const DARKNESS_Z_AMBIENT: f32 = 3.0;
 pub const DARKNESS_Z_FLASHLIGHT: f32 = 4.0;
 pub const DARKNESS_Z_MONSTER: f32 = 3.5;
 
+// === 陷阱 ===
+pub const TRAP_INTERACTION_DISTANCE: f32 = 50.0; // 交互陷阱的最大互动距离
+pub const TRAP_AREA_DEFAULT_RADIUS: f32 = 32.0; // 区域陷阱默认触发半径
+pub const TRAP_INTERACTION_DEFAULT_RADIUS: f32 = 64.0; // 交互陷阱默认触发半径
+pub const TRAP_AREA_DEFAULT_DAMAGE: f32 = 20.0; // 区域陷阱默认伤害（理智扣减）
+pub const TRAP_INTERACTION_DEFAULT_DAMAGE: f32 = 30.0; // 交互陷阱默认伤害
+pub const TRAP_AREA_COUNT: usize = 3; // 地图上区域陷阱数量
+pub const TRAP_INTERACTION_COUNT: usize = 2; // 地图上交互陷阱数量
+
 // === 相机 ===
 pub const CAMERA_Z: f32 = 1000.0;
 pub const CAMERA_FOLLOW_LERP: f32 = 0.12;

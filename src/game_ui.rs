@@ -1,9 +1,11 @@
 //! UI: 开始界面 / 存档界面 / 游戏结束 / 胜利 / HUD
 
 use bevy::prelude::*;
+use bevy_state::state::NextState;
 
 use crate::{GameState, HudTag, SaveMenuTag, GameTimer, WorldState, PendingSaveLoad};
 use crate::save::{SaveManager, SaveInfo, SLOT_NAME, SCENE_NAME};
+use crate::trap::Journal;
 use crate::constants::*;
 
 #[derive(Component)]
@@ -747,7 +749,20 @@ pub fn spawn_hud(mut commands: Commands) {
         ]))
         .id();
 
-    commands.entity(stats).push_children(&[keys, sanity, fear]);
+    let clues = commands
+        .spawn(TextBundle::from_sections([
+            TextSection::new(
+                "线索: ",
+                TextStyle { font_size: 22.0, color: Color::rgb(0.85, 0.65, 0.25), ..default() },
+            ),
+            TextSection::new(
+                "0",
+                TextStyle { font_size: 22.0, color: Color::WHITE, ..default() },
+            ),
+        ]))
+        .id();
+
+    commands.entity(stats).push_children(&[keys, sanity, fear, clues]);
 
     // 右侧: 游戏时间、快捷键提示
     let right_panel = commands
@@ -779,7 +794,7 @@ pub fn spawn_hud(mut commands: Commands) {
     
     let hints = commands
         .spawn(TextBundle::from_section(
-            "F5存档 F9读档",
+            "F5存档 F9读档  E互动",
             TextStyle { font_size: 16.0, color: Color::rgb(0.5, 0.5, 0.5), ..default() },
         ))
         .id();
@@ -791,6 +806,7 @@ pub fn spawn_hud(mut commands: Commands) {
 
 pub fn update_hud_text(
     state: Res<WorldState>,
+    journal: Res<Journal>,
     timer: Res<GameTimer>,
     mut q: Query<&mut Text>,
 ) {
@@ -803,6 +819,8 @@ pub fn update_hud_text(
                 section.value = format!("理智: {:.0}", state.sanity);
             } else if section.value.starts_with("恐惧: ") {
                 section.value = format!("恐惧: {:.0}", state.fear_level);
+            } else if section.value.starts_with("线索: ") {
+                section.value = format!("线索: {}", journal.discovered_count());
             } else if section.value.starts_with("时间: ") {
                 let hours = (timer.seconds / 3600.0) as u32;
                 let minutes = ((timer.seconds % 3600.0) / 60.0) as u32;

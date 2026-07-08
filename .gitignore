@@ -7,3 +7,6 @@ Cargo.lock
 # Reference repositories (cloned via git clone)
 reference/*
 !reference/README.md
+
+# Player save data (generated at runtime)
+saves/*

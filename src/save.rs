@@ -42,6 +42,15 @@ pub struct GameSnapshot {
     pub monsters: Vec<MonsterSnapshot>,
     /// 当前游戏时间（秒）
     pub game_time_seconds: f32,
+    /// 玩家累计死亡次数
+    #[serde(default)]
+    pub death_count: u32,
+    /// 最近死亡原因
+    #[serde(default)]
+    pub last_death_reason: String,
+    /// 最近检查点（X, Y）
+    #[serde(default)]
+    pub last_checkpoint: Option<[f32; 2]>,
 }
 
 /// 怪物状态快照
@@ -157,12 +166,14 @@ impl SaveManager {
             .collect();
         
         let hash_data = format!(
-            "{},{},{},{},{},{}",
+            "{},{},{},{},{},{},{},{}",
             snapshot.player_x,
             snapshot.player_y,
             snapshot.fear_level,
             snapshot.sanity,
             snapshot.keys_collected,
+            snapshot.death_count,
+            snapshot.last_death_reason,
             monster_data
         );
         
@@ -200,6 +211,9 @@ pub fn create_snapshot_from_state(
     keys_collected: u32,
     monster_positions: &[(Vec2, u8)], // (位置, 状态)
     game_time_seconds: f32,
+    death_count: u32,
+    last_death_reason: &str,
+    last_checkpoint: Option<Vec2>,
 ) -> GameSnapshot {
     GameSnapshot {
         player_x: player_pos.x,
@@ -213,5 +227,8 @@ pub fn create_snapshot_from_state(
             state: *state,
         }).collect(),
         game_time_seconds,
+        death_count,
+        last_death_reason: last_death_reason.to_string(),
+        last_checkpoint: last_checkpoint.map(|p| [p.x, p.y]),
     }
 }

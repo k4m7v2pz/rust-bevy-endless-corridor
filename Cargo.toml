@@ -6,7 +6,7 @@ description = "无尽回廊 - A survival horror 2D game rebuilt in Rust Bevy"
 license = "Unlicense"
 
 [dependencies]
-bevy = { version = "0.13", default-features = false, features = [
+bevy = { version = "0.14", default-features = false, features = [
     "bevy_sprite",
     "bevy_render",
     "bevy_core_pipeline",
@@ -14,9 +14,13 @@ bevy = { version = "0.13", default-features = false, features = [
     "bevy_ui",
     "bevy_winit",
     "bevy_asset",
-    "multi-threaded",
+    "multi_threaded",
     "png",
+    "bevy_dev_tools",
+    "bevy_state",
 ] }
+bevy_state = "0.14"
+bevy_app = "0.14"
 rand = "0.8"
 sha2 = "0.10"
 chrono = "0.4"

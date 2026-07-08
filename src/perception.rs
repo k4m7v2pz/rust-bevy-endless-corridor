@@ -1,6 +1,7 @@
 //! 恐惧 / 理智 & 幻觉系统
 
 use bevy::prelude::*;
+use bevy::math::primitives::Circle;
 use bevy::sprite::MaterialMesh2dBundle;
 use rand::Rng;
 
@@ -27,7 +28,7 @@ pub fn setup_hallucination_assets(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    let mesh = meshes.add(Mesh::from(shape::Circle { radius: HALLUCINATION_SIZE, vertices: 32 }));
+    let mesh = meshes.add(Mesh::from(Circle { radius: HALLUCINATION_SIZE }));
     let material = materials.add(ColorMaterial::from(Color::rgba(0.7, 0.6, 0.9, 0.35)));
     commands.insert_resource(HallucinationAssets { mesh, material });
 }

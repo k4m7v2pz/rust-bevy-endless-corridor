@@ -66,18 +66,19 @@ impl EnvironmentEffects {
         let count = self.active.len() as f32;
 
         if count == 0.0 {
-            return Color::rgba(0.0, 0.0, 0.0, 0.0);
+            return Color::srgba(0.0, 0.0, 0.0, 0.0);
         }
 
         for effect in &self.active {
             let c = effect.color();
-            r += c.r();
-            g += c.g();
-            b += c.b();
-            a += c.a();
+            let s = c.to_srgba();
+            r += s.red;
+            g += s.green;
+            b += s.blue;
+            a += s.alpha;
         }
 
-        Color::rgba(r / count, g / count, b / count, a / count)
+        Color::srgba(r / count, g / count, b / count, a / count)
     }
 }
 

@@ -1,0 +1,31 @@
+{
+  "global": {
+    "enable_warnings": true,
+    "default_language": "zh_CN"
+  },
+  "warnings": [
+    {
+      "id": "epilepsy",
+      "title": "光敏性癫痫警告",
+      "description": "该游戏包含闪烁图像，可能引发光敏性癫痫，请有相关病史的玩家谨慎游玩。",
+      "enabled": true
+    },
+    {
+      "id": "scare",
+      "title": "惊吓提醒",
+      "description": "游戏中包含突然出现的惊吓元素，可能会造成心理不适。",
+      "enabled": true
+    },
+    {
+      "id": "bloody",
+      "title": "血腥暴力提醒",
+      "description": "游戏中包含血腥暴力元素，请根据个人承受能力游玩。",
+      "enabled": true
+    }
+  ],
+  "health_advice": {
+    "enable_china_mainland": true,
+    "text": "抵制不良游戏，拒接盗版游戏，注意自我保护，谨防受骗上当。适度游戏益脑，沉迷游戏伤身，合理安排时间，享受健康生活。",
+    "position": "after_warnings"
+  }
+}

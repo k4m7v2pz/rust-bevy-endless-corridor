@@ -1,6 +1,7 @@
 //! 黑暗覆盖 + 手电筒锥形光晕 (通过自定义 Mesh + ColorMaterial 实现)
 
 use bevy::prelude::*;
+use bevy::math::primitives::Circle;
 use bevy::render::mesh::{Indices, PrimitiveTopology};
 use bevy::sprite::MaterialMesh2dBundle;
 
@@ -36,7 +37,7 @@ pub fn setup_darkness_meshes(
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     let cone = meshes.add(build_fan_mesh(PLAYER_FLASHLIGHT_RADIUS, PLAYER_FLASHLIGHT_HALF_ANGLE, DARKNESS_CONE_SEGMENTS));
-    let circle = meshes.add(Mesh::from(shape::Circle { radius: DARKNESS_AMBIENT_RADIUS, vertices: 32 }));
+    let circle = meshes.add(Mesh::from(Circle { radius: DARKNESS_AMBIENT_RADIUS }));
 
     let cone_mat = materials.add(ColorMaterial::from(Color::rgba(1.0, 0.95, 0.7, 0.28)));
     let circle_mat = materials.add(ColorMaterial::from(Color::rgba(1.0, 0.25, 0.15, 0.35)));

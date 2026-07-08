@@ -7,6 +7,7 @@ use bevy::prelude::*;
 use rand::Rng;
 
 use crate::constants::*;
+use crate::trap::TrapKind;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TileType {
@@ -22,6 +23,19 @@ impl Default for TileType {
 #[derive(Component)]
 pub struct MapTile;
 
+/// 地图上的陷阱点配置（生成时转化为陷阱实体）
+#[derive(Debug, Clone)]
+pub struct TrapSpot {
+    pub trap_id: String,
+    pub kind: TrapKind,
+    pub pos: Vec2,
+    pub trigger_radius: f32,
+    pub damage: f32,
+    pub lethal: bool,
+    pub description: String,
+    pub clue: Option<String>,
+}
+
 #[derive(Resource)]
 pub struct GameMap {
     pub tiles: Vec<Vec<TileType>>,
@@ -32,6 +46,7 @@ pub struct GameMap {
     pub hiding_spots: Vec<Vec2>,
     pub key_spots: Vec<Vec2>,
     pub monster_spawns: Vec<Vec2>,
+    pub trap_spots: Vec<TrapSpot>,
 }
 
 impl GameMap {
@@ -114,6 +129,7 @@ impl GameMap {
         let mut hiding_spots = Vec::new();
         let mut key_spots = Vec::new();
         let mut monster_spawns = Vec::new();
+        let mut trap_spots = Vec::new();
 
         for (i, &(cx, cy, _, _)) in rooms.iter().enumerate() {
             let center = tile_center(cx, cy);
@@ -139,6 +155,50 @@ impl GameMap {
         }
         hiding_spots.truncate(MAX_HIDING_SPOTS);
 
+        // 放置陷阱点（避开玩家出生房与出口房）
+        let player_room_idx = rooms.len() / 2;
+        let exit_room_idx = rooms.len() - 1;
+        let trap_candidates: Vec<(u32, u32)> = rooms.iter().enumerate()
+            .filter(|(i, _)| *i != player_room_idx && *i != exit_room_idx)
+            .map(|(_, (cx, cy, _, _))| (*cx, *cy))
+            .collect();
+        if !trap_candidates.is_empty() {
+            // 区域陷阱
+            for n in 0..TRAP_AREA_COUNT {
+                let (cx, cy) = trap_candidates[rng.gen_range(0..trap_candidates.len())];
+                trap_spots.push(TrapSpot {
+                    trap_id: format!("area_trap_{}", n),
+                    kind: TrapKind::Area,
+                    pos: tile_center(cx, cy) + Vec2::new(
+                        rng.gen_range(-TILE_SIZE * 0.3..TILE_SIZE * 0.3),
+                        rng.gen_range(-TILE_SIZE * 0.3..TILE_SIZE * 0.3),
+                    ),
+                    trigger_radius: TRAP_AREA_DEFAULT_RADIUS,
+                    damage: TRAP_AREA_DEFAULT_DAMAGE,
+                    lethal: false,
+                    description: "区域陷阱，进入范围即触发".to_string(),
+                    clue: Some("地面似乎有些异样，可能藏有陷阱。".to_string()),
+                });
+            }
+            // 交互陷阱
+            for n in 0..TRAP_INTERACTION_COUNT {
+                let (cx, cy) = trap_candidates[rng.gen_range(0..trap_candidates.len())];
+                trap_spots.push(TrapSpot {
+                    trap_id: format!("lever_trap_{}", n),
+                    kind: TrapKind::Interaction,
+                    pos: tile_center(cx, cy) + Vec2::new(
+                        rng.gen_range(-TILE_SIZE * 0.3..TILE_SIZE * 0.3),
+                        rng.gen_range(-TILE_SIZE * 0.3..TILE_SIZE * 0.3),
+                    ),
+                    trigger_radius: TRAP_INTERACTION_DEFAULT_RADIUS,
+                    damage: TRAP_INTERACTION_DEFAULT_DAMAGE,
+                    lethal: false,
+                    description: "交互陷阱，触发机关即激活".to_string(),
+                    clue: Some("一具陌生的机关，触碰它会引来麻烦。".to_string()),
+                });
+            }
+        }
+
         Self {
             tiles,
             width_tiles,
@@ -148,6 +208,7 @@ impl GameMap {
             hiding_spots,
             key_spots,
             monster_spawns,
+            trap_spots,
         }
     }
 
