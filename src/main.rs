@@ -1,0 +1,406 @@
+//! 无尽回廊 - The Endless Corridor (Rust Bevy 重写)
+//!
+//! 系统列表 (主要模块):
+//! - tile_map: 程序化生成地图 (房间 + 走廊)
+//! - player: 玩家移动 / 躲藏 / 手电筒
+//! - monster: 怪物 AI (巡逻 / 追逐 / 搜索)
+//! - items: 钥匙收集 / 出口门 / 躲藏点
+//! - darkness: 黑暗覆盖与光锥 (手电筒/怪物红光)
+//! - perception: 恐惧 / 理智 / 幻觉系统
+//! - save: 存档系统 (7位哈希ID + 双时间维度)
+//! - game_ui: 开始 / 结束 / 胜利 / HUD
+
+use bevy::prelude::*;
+use bevy::window::WindowResolution;
+
+mod constants;
+mod tile_map;
+mod player;
+mod monster;
+mod items;
+mod darkness;
+mod perception;
+mod save;
+mod game_ui;
+mod dialogue;
+mod endings;
+mod looping_corridor;
+mod environment;
+mod warnings;
+mod sound_cue;
+
+use tile_map::GameMap;
+use constants::*;
+
+// ---------- 游戏状态 ----------
+#[derive(States, Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum GameState {
+    #[default]
+    StartScreen,
+    SaveMenu,
+    Playing,
+    GameOver,
+    Win,
+}
+
+// ---------- 全局资源 ----------
+#[derive(Resource)]
+pub struct WorldState {
+    pub fear_level: f32,
+    pub sanity: f32,
+    pub keys_collected: u32,
+    pub keys_total: u32,
+}
+
+impl Default for WorldState {
+    fn default() -> Self {
+        Self {
+            fear_level: 0.0,
+            sanity: SANITY_MAX,
+            keys_collected: 0,
+            keys_total: KEYS_REQUIRED,
+        }
+    }
+}
+
+#[derive(Resource, Default)]
+pub struct ScreenShake {
+    pub intensity: f32,
+}
+
+/// 游戏计时器
+#[derive(Resource, Default)]
+pub struct GameTimer {
+    pub seconds: f32,
+}
+
+/// 待加载的存档数据（从存档菜单进入游戏时使用）
+#[derive(Resource, Default)]
+pub struct PendingSaveLoad {
+    pub save_id: Option<String>,
+}
+
+// ---------- 标记组件 (让 despawn_screen 能识别) ----------
+#[derive(Component)]
+pub struct PlayerTag;
+
+#[derive(Component)]
+pub struct MonsterTag;
+
+#[derive(Component)]
+pub struct ItemTag;
+
+#[derive(Component)]
+pub struct HidingSpotTag;
+
+#[derive(Component)]
+pub struct HudTag;
+
+#[derive(Component)]
+pub struct SaveMenuTag;
+
+// 注意: HallucinationTag / DarknessOverlayTag 定义在各自模块中,
+// 主文件里通过 re-export 暴露给其他子模块使用。
+pub use perception::HallucinationTag;
+pub use darkness::DarknessOverlayTag;
+
+#[derive(Component)]
+pub struct MainCamera;
+
+#[derive(Component)]
+pub struct UiCamera;
+
+// ---------- 主入口 ----------
+fn main() {
+    App::new()
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "无尽回廊 - The Endless Corridor".into(),
+                resolution: WindowResolution::new(WINDOW_WIDTH, WINDOW_HEIGHT),
+                resizable: true,
+                ..default()
+            }),
+            ..default()
+        }))
+        .init_state::<GameState>()
+        .insert_resource(ClearColor(Color::rgb(0.02, 0.015, 0.015)))
+        .insert_resource(WorldState::default())
+        .insert_resource(ScreenShake::default())
+        .insert_resource(GameTimer::default())
+        .insert_resource(PendingSaveLoad::default())
+        .add_plugins(dialogue::DialoguePlugin)
+        .add_plugins(endings::EndingsPlugin::default())
+        .add_plugins(environment::EnvironmentPlugin)
+        .add_plugins(warnings::WarningPlugin::default())
+        .add_plugins(sound_cue::SoundCuePlugin)
+        // --- 启动 ---
+        .add_systems(Startup, setup_camera)
+        // --- 开始界面 ---
+        .add_systems(OnEnter(GameState::StartScreen), game_ui::spawn_start_screen)
+        .add_systems(
+            Update,
+            game_ui::start_screen_input.run_if(in_state(GameState::StartScreen)),
+        )
+        .add_systems(
+            OnExit(GameState::StartScreen),
+            game_ui::despawn_screen::<game_ui::StartScreenTag>,
+        )
+        // --- 存档界面 ---
+        .add_systems(OnEnter(GameState::SaveMenu), game_ui::spawn_save_menu)
+        .add_systems(
+            Update,
+            game_ui::save_menu_input.run_if(in_state(GameState::SaveMenu)),
+        )
+        .add_systems(
+            OnExit(GameState::SaveMenu),
+            game_ui::despawn_screen::<SaveMenuTag>,
+        )
+        // --- 进入 Playing ---
+        .add_systems(
+            OnEnter(GameState::Playing),
+            (
+                reset_world_state,
+                reset_game_timer,
+                spawn_game_world,
+                darkness::setup_darkness_meshes,
+                perception::setup_hallucination_assets,
+                game_ui::spawn_hud,
+                apply_pending_save_load,
+            )
+                .chain(),
+        )
+        .add_systems(
+            Update,
+            (
+                update_game_timer,
+                player::player_movement,
+                player::player_hide_input,
+                player::rotate_flashlight_to_mouse,
+                monster::monster_ai,
+                items::item_update,
+                monster::check_player_monster_collision,
+                perception::update_fear_and_sanity,
+                perception::update_perception,
+                perception::camera_follow,
+                darkness::darkness_overlay,
+                perception::draw_hallucinations,
+                game_ui::update_hud_text,
+                handle_save_input,
+                handle_quick_load_input,
+            )
+                .run_if(in_state(GameState::Playing)),
+        )
+        .add_systems(
+            OnExit(GameState::Playing),
+            (
+                game_ui::despawn_screen::<PlayerTag>,
+                game_ui::despawn_screen::<MonsterTag>,
+                game_ui::despawn_screen::<ItemTag>,
+                game_ui::despawn_screen::<HidingSpotTag>,
+                game_ui::despawn_screen::<HudTag>,
+                game_ui::despawn_screen::<HallucinationTag>,
+                game_ui::despawn_screen::<darkness::DarknessOverlayTag>,
+                game_ui::despawn_screen::<tile_map::MapTile>,
+            ),
+        )
+        // --- 游戏结束 ---
+        .add_systems(OnEnter(GameState::GameOver), game_ui::spawn_game_over_screen)
+        .add_systems(
+            Update,
+            game_ui::game_over_input.run_if(in_state(GameState::GameOver)),
+        )
+        .add_systems(
+            OnExit(GameState::GameOver),
+            game_ui::despawn_screen::<game_ui::GameOverScreenTag>,
+        )
+        // --- 胜利 ---
+        .add_systems(OnEnter(GameState::Win), game_ui::spawn_win_screen)
+        .add_systems(Update, game_ui::game_over_input.run_if(in_state(GameState::Win)))
+        .add_systems(
+            OnExit(GameState::Win),
+            game_ui::despawn_screen::<game_ui::WinScreenTag>,
+        )
+        .run();
+}
+
+// ---------- 启动系统: 摄像机 ----------
+fn setup_camera(mut commands: Commands) {
+    commands.spawn((
+        Camera2dBundle {
+            camera: Camera {
+                order: 0,
+                ..default()
+            },
+            transform: Transform::from_xyz(WORLD_WIDTH * 0.5, WORLD_HEIGHT * 0.5, CAMERA_Z),
+            ..default()
+        },
+        MainCamera,
+    ));
+
+    commands.spawn((
+        Camera2dBundle {
+            camera: Camera {
+                order: 2,
+                clear_color: ClearColorConfig::None,
+                ..default()
+            },
+            ..default()
+        },
+        UiCamera,
+    ));
+}
+
+fn reset_world_state(mut state: ResMut<WorldState>) {
+    *state = WorldState::default();
+}
+
+fn reset_game_timer(mut timer: ResMut<GameTimer>) {
+    timer.seconds = 0.0;
+}
+
+/// 应用待加载的存档
+fn apply_pending_save_load(
+    mut pending: ResMut<PendingSaveLoad>,
+    mut world_state: ResMut<WorldState>,
+    mut timer: ResMut<GameTimer>,
+    mut player_q: Query<&mut Transform, With<PlayerTag>>,
+    mut monster_q: Query<(&mut Transform, &mut monster::Monster)>,
+) {
+    let Some(save_id) = pending.save_id.take() else { return };
+    
+    let manager = save::SaveManager::new("saves".into());
+    match manager.load_save(&save_id) {
+        Ok(save_data) => {
+            let snap = &save_data.game_state;
+            info!("加载存档: {} (时长: {})", save_id, save_data.game_duration);
+            
+            // 恢复世界状态
+            world_state.fear_level = snap.fear_level;
+            world_state.sanity = snap.sanity;
+            world_state.keys_collected = snap.keys_collected;
+            timer.seconds = snap.game_time_seconds;
+            
+            // 恢复玩家位置
+            if let Ok(mut player_trans) = player_q.get_single_mut() {
+                player_trans.translation.x = snap.player_x;
+                player_trans.translation.y = snap.player_y;
+            }
+            
+            // 恢复怪物位置（尽量匹配数量）
+            let mut monster_iter = monster_q.iter_mut();
+            for monster_snap in &snap.monsters {
+                if let Some((mut m_trans, mut m)) = monster_iter.next() {
+                    m_trans.translation.x = monster_snap.x;
+                    m_trans.translation.y = monster_snap.y;
+                    m.state = match monster_snap.state {
+                        0 => monster::MonsterState::Patrolling,
+                        1 => monster::MonsterState::Chasing,
+                        _ => monster::MonsterState::Searching,
+                    };
+                }
+            }
+        }
+        Err(e) => error!("加载存档失败: {}", e),
+    }
+}
+
+fn update_game_timer(mut timer: ResMut<GameTimer>, time: Res<Time>) {
+    timer.seconds += time.delta_seconds();
+}
+
+/// 存档快捷键处理 (F5保存, F9加载)
+fn handle_save_input(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    world_state: Res<WorldState>,
+    timer: Res<GameTimer>,
+    player_q: Query<&Transform, With<PlayerTag>>,
+    monster_q: Query<(&Transform, &monster::Monster)>,
+) {
+    // F5 保存
+    if keyboard.just_pressed(KeyCode::F5) {
+        let player_pos = player_q.single().translation.xy();
+        let monster_states: Vec<_> = monster_q.iter()
+            .map(|(t, m)| {
+                let state = match m.state {
+                    monster::MonsterState::Patrolling => 0,
+                    monster::MonsterState::Chasing => 1,
+                    monster::MonsterState::Searching => 2,
+                };
+                (t.translation.xy(), state)
+            })
+            .collect();
+        
+        let snapshot = save::create_snapshot_from_state(
+            player_pos,
+            world_state.fear_level,
+            world_state.sanity,
+            world_state.keys_collected,
+            &monster_states,
+            timer.seconds,
+        );
+        
+        let manager = save::SaveManager::new("saves".into());
+        match manager.create_save(snapshot, timer.seconds) {
+            Ok(save_data) => info!("存档已保存: {} (时长: {})", save_data.save_id, save_data.game_duration),
+            Err(e) => error!("存档失败: {}", e),
+        }
+    }
+}
+
+/// 快速读档 (F9)
+fn handle_quick_load_input(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut world_state: ResMut<WorldState>,
+    mut timer: ResMut<GameTimer>,
+    mut player_q: Query<&mut Transform, With<PlayerTag>>,
+    mut monster_q: Query<(&mut Transform, &mut monster::Monster)>,
+) {
+    if keyboard.just_pressed(KeyCode::F9) {
+        let manager = save::SaveManager::new("saves".into());
+        let saves = manager.list_saves();
+        if let Some(latest) = saves.first() {
+            match manager.load_save(&latest.save_id) {
+                Ok(save_data) => {
+                    let snap = &save_data.game_state;
+                    info!("加载存档: {} (时长: {})", save_data.save_id, save_data.game_duration);
+                    
+                    world_state.fear_level = snap.fear_level;
+                    world_state.sanity = snap.sanity;
+                    world_state.keys_collected = snap.keys_collected;
+                    timer.seconds = snap.game_time_seconds;
+                    
+                    if let Ok(mut p) = player_q.get_single_mut() {
+                        p.translation.x = snap.player_x;
+                        p.translation.y = snap.player_y;
+                    }
+                    
+                    let mut iter = monster_q.iter_mut();
+                    for m_snap in &snap.monsters {
+                        if let Some((mut t, mut m)) = iter.next() {
+                            t.translation.x = m_snap.x;
+                            t.translation.y = m_snap.y;
+                            m.state = match m_snap.state {
+                                0 => monster::MonsterState::Patrolling,
+                                1 => monster::MonsterState::Chasing,
+                                _ => monster::MonsterState::Searching,
+                            };
+                        }
+                    }
+                }
+                Err(e) => error!("加载失败: {}", e),
+            }
+        }
+    }
+}
+
+fn spawn_game_world(mut commands: Commands) {
+    let map = GameMap::generate();
+
+    tile_map::spawn_map_tiles(&mut commands, &map);
+
+    player::spawn_player(&mut commands, &map);
+    monster::spawn_monsters(&mut commands, &map);
+    items::spawn_items_and_spots(&mut commands, &map);
+
+    commands.insert_resource(map);
+}
