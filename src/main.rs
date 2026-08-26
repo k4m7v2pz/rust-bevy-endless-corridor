@@ -13,8 +13,10 @@
 
 use bevy::prelude::*;
 use bevy::window::WindowResolution;
+use bevy::asset::load_internal_binary_asset;
+use bevy::text::Font;
 use bevy_state::app::AppExtStates;
-use bevy_state::state::{OnEnter, OnExit, States};
+use bevy_state::state::{OnEnter, OnExit, States, SubStates};
 use bevy_state::condition::in_state;
 
 mod constants;
@@ -50,6 +52,26 @@ pub enum GameState {
     Playing,
     GameOver,
     Win,
+}
+
+/// 游戏内子状态：暂停覆盖层（保留世界、冻结逻辑）
+#[derive(SubStates, Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[source(GameState = GameState::Playing)]
+pub enum PlayPhase {
+    #[default]
+    Running,
+    Paused,
+}
+
+/// 存档界面返回来源（多入口：主菜单 / 游戏中）
+#[derive(Resource, Default)]
+pub struct SaveReturnTo(pub SaveReturnOrigin);
+
+#[derive(Default, Clone, Copy, PartialEq, Eq)]
+pub enum SaveReturnOrigin {
+    #[default]
+    Title,
+    Game,
 }
 
 // ---------- 全局资源 ----------
@@ -128,6 +150,26 @@ pub struct MainCamera;
 #[derive(Component)]
 pub struct UiCamera;
 
+/// 注册打包进二进制的开源中文字体为默认字体。
+///
+/// 字体：思源黑体 Noto Sans CJK SC Regular（SIL OFL 1.1 开源许可），
+/// 随仓库放在 `fonts/`。项目使用 `default-features = false`，Bevy 不内置任何
+/// 字体；若不注册，全部 UI 文本（中文）将无法渲染（窗口一片黑）。
+struct CjkFontPlugin;
+
+impl Plugin for CjkFontPlugin {
+    fn build(&self, app: &mut App) {
+        load_internal_binary_asset!(
+            app,
+            Handle::default(),
+            "../fonts/NotoSansCJKsc-Regular.otf",
+            |bytes: &[u8], _path: String| -> Font {
+                Font::try_from_bytes(bytes.to_vec()).expect("内置中文字体解析失败")
+            }
+        );
+    }
+}
+
 // ---------- 主入口 ----------
 fn main() {
     App::new()
@@ -140,12 +182,15 @@ fn main() {
             }),
             ..default()
         }))
+        .add_plugins(CjkFontPlugin)
         .init_state::<GameState>()
+        .add_sub_state::<PlayPhase>()
         .insert_resource(ClearColor(Color::srgb(0.02, 0.015, 0.015)))
         .insert_resource(WorldState::default())
         .insert_resource(ScreenShake::default())
         .insert_resource(GameTimer::default())
         .insert_resource(PendingSaveLoad::default())
+        .insert_resource(SaveReturnTo::default())
         .add_plugins(dialogue::DialoguePlugin)
         .add_plugins(endings::EndingsPlugin::default())
         .add_plugins(environment::EnvironmentPlugin)
@@ -214,8 +259,10 @@ fn main() {
                 check_sanity_death,
                 handle_save_input,
                 handle_quick_load_input,
+                esc_to_pause,
+                letter_key_to_save,
             )
-                .run_if(in_state(GameState::Playing)),
+                .run_if(in_state(PlayPhase::Running)),
         )
         .add_systems(
             Update,
@@ -225,7 +272,17 @@ fn main() {
                 fog_of_war::fog_despawn_revealed,
             )
                 .chain()
-                .run_if(in_state(GameState::Playing)),
+                .run_if(in_state(PlayPhase::Running)),
+        )
+        // --- 暂停覆盖层（ESC 菜单，世界保留）---
+        .add_systems(OnEnter(PlayPhase::Paused), game_ui::spawn_pause_menu)
+        .add_systems(
+            Update,
+            game_ui::pause_menu_input.run_if(in_state(PlayPhase::Paused)),
+        )
+        .add_systems(
+            OnExit(PlayPhase::Paused),
+            game_ui::despawn_screen::<game_ui::PauseMenuTag>,
         )
         .add_systems(
             OnExit(GameState::Playing),
@@ -303,8 +360,8 @@ fn apply_pending_save_load(
     mut pending: ResMut<PendingSaveLoad>,
     mut world_state: ResMut<WorldState>,
     mut timer: ResMut<GameTimer>,
-    mut player_q: Query<&mut Transform, With<PlayerTag>>,
-    mut monster_q: Query<(&mut Transform, &mut monster::Monster)>,
+    mut player_q: Query<&mut Transform, (With<PlayerTag>, Without<monster::Monster>)>,
+    mut monster_q: Query<(&mut Transform, &mut monster::Monster), Without<PlayerTag>>,
     mut revealed: ResMut<fog_of_war::RevealedTiles>,
 ) {
     let Some(save_id) = pending.save_id.take() else { return };
@@ -356,12 +413,37 @@ fn update_game_timer(mut timer: ResMut<GameTimer>, time: Res<Time>) {
 }
 
 /// 存档快捷键处理 (F5保存, F9加载)
+// ---------- 暂停 / 存档界面多入口 ----------
+/// ESC 打开暂停菜单（调试控制台打开时 ESC 用于关闭控制台，不触发暂停）
+fn esc_to_pause(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    console: Res<debug::ConsoleState>,
+    mut next_phase: ResMut<NextState<PlayPhase>>,
+) {
+    if keyboard.just_pressed(KeyCode::Escape) && !console.visible {
+        next_phase.set(PlayPhase::Paused);
+    }
+}
+
+/// 字母键 L 直达存档界面（多入口之一：游戏中直达）
+fn letter_key_to_save(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    console: Res<debug::ConsoleState>,
+    mut next_state: ResMut<NextState<GameState>>,
+    mut ret: ResMut<SaveReturnTo>,
+) {
+    if keyboard.just_pressed(KeyCode::KeyL) && !console.visible {
+        ret.0 = SaveReturnOrigin::Game;
+        next_state.set(GameState::SaveMenu);
+    }
+}
+
 fn handle_save_input(
     keyboard: Res<ButtonInput<KeyCode>>,
     world_state: Res<WorldState>,
     timer: Res<GameTimer>,
-    player_q: Query<&Transform, With<PlayerTag>>,
-    monster_q: Query<(&Transform, &monster::Monster)>,
+    player_q: Query<&Transform, (With<PlayerTag>, Without<monster::Monster>)>,
+    monster_q: Query<(&Transform, &monster::Monster), Without<PlayerTag>>,
     revealed: Res<fog_of_war::RevealedTiles>,
 ) {
     // F5 保存
@@ -404,8 +486,8 @@ fn handle_quick_load_input(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut world_state: ResMut<WorldState>,
     mut timer: ResMut<GameTimer>,
-    mut player_q: Query<&mut Transform, With<PlayerTag>>,
-    mut monster_q: Query<(&mut Transform, &mut monster::Monster)>,
+    mut player_q: Query<&mut Transform, (With<PlayerTag>, Without<monster::Monster>)>,
+    mut monster_q: Query<(&mut Transform, &mut monster::Monster), Without<PlayerTag>>,
 ) {
     if keyboard.just_pressed(KeyCode::F9) {
         let manager = save::SaveManager::new("saves".into());

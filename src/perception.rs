@@ -37,8 +37,8 @@ pub fn update_fear_and_sanity(
     time: Res<Time>,
     mut state: ResMut<WorldState>,
     mut shake: ResMut<ScreenShake>,
-    player_q: Query<(&Transform, &Player), With<PlayerTag>>,
-    monster_q: Query<&Transform, With<MonsterTag>>,
+    player_q: Query<(&Transform, &Player), (With<PlayerTag>, Without<MonsterTag>)>,
+    monster_q: Query<&Transform, (With<MonsterTag>, Without<PlayerTag>)>,
 ) {
     let Ok((p_trans, player)) = player_q.get_single() else { return };
     let pp = p_trans.translation.xy();

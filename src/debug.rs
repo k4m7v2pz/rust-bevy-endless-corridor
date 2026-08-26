@@ -390,10 +390,13 @@ pub fn console_execute_system(
     mut pending: ResMut<PendingCommand>,
     mut console: ResMut<ConsoleState>,
     mut hud: ResMut<DebugHudState>,
-    mut player_query: Query<(&mut Transform, &mut Player), With<PlayerTag>>,
+    mut player_query: Query<
+        (&mut Transform, &mut Player),
+        (With<PlayerTag>, Without<MonsterTag>, Without<ItemTag>),
+    >,
     mut world_state: ResMut<WorldState>,
-    monster_query: Query<&Transform, With<MonsterTag>>,
-    item_query: Query<(), With<ItemTag>>,
+    monster_query: Query<&Transform, (With<MonsterTag>, Without<PlayerTag>)>,
+    item_query: Query<(), (With<ItemTag>, Without<PlayerTag>, Without<MonsterTag>)>,
 ) {
     let Some(cmd_line) = pending.0.take() else { return };
     let parts: Vec<&str> = cmd_line.split_whitespace().collect();
@@ -568,9 +571,9 @@ pub fn debug_hud_update_system(
     hud_state: Res<DebugHudState>,
     diagnostics: Res<bevy::diagnostic::DiagnosticsStore>,
     world_state: Res<WorldState>,
-    player_query: Query<(&Transform, &Player), With<PlayerTag>>,
-    monster_query: Query<&Transform, With<MonsterTag>>,
-    item_query: Query<(), With<ItemTag>>,
+    player_query: Query<(&Transform, &Player), (With<PlayerTag>, Without<MonsterTag>, Without<ItemTag>)>,
+    monster_query: Query<&Transform, (With<MonsterTag>, Without<PlayerTag>)>,
+    item_query: Query<(), (With<ItemTag>, Without<PlayerTag>, Without<MonsterTag>)>,
     entities: Query<Entity>,
     mut text_query: Query<&mut Text, With<DebugHudText>>,
     mut panel_query: Query<&mut Visibility, With<DebugHudText>>,
@@ -657,8 +660,8 @@ pub fn debug_hud_update_system(
 pub fn console_render_system(
     console: Res<ConsoleState>,
     mut panel: Query<&mut Visibility, With<ConsoleRoot>>,
-    mut history: Query<&mut Text, With<ConsoleHistoryText>>,
-    mut input: Query<&mut Text, With<ConsoleInputText>>,
+    mut history: Query<&mut Text, (With<ConsoleHistoryText>, Without<ConsoleInputText>)>,
+    mut input: Query<&mut Text, (With<ConsoleInputText>, Without<ConsoleHistoryText>)>,
 ) {
     for mut vis in &mut panel {
         *vis = if console.visible {

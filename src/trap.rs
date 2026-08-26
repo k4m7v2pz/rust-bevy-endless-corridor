@@ -191,8 +191,8 @@ pub fn trap_check_area(
     mut evts: EventWriter<TrapTriggeredEvent>,
     mut clue_evts: EventWriter<ClueDiscoveredEvent>,
     mut next_state: ResMut<NextState<GameState>>,
-    player_q: Query<(&Transform, &Player), With<PlayerTag>>,
-    mut trap_q: Query<(Entity, &mut Trap, &Transform)>,
+    player_q: Query<(&Transform, &Player), (With<PlayerTag>, Without<Trap>)>,
+    mut trap_q: Query<(Entity, &mut Trap, &Transform), Without<Player>>,
 ) {
     let Ok((p_trans, _player)) = player_q.get_single() else { return };
     let pp = p_trans.translation.xy();
@@ -233,8 +233,8 @@ pub fn trap_interaction_input(
     mut evts: EventWriter<TrapTriggeredEvent>,
     mut clue_evts: EventWriter<ClueDiscoveredEvent>,
     mut next_state: ResMut<NextState<GameState>>,
-    player_q: Query<&Transform, With<PlayerTag>>,
-    mut trap_q: Query<(Entity, &mut Trap, &Transform)>,
+    player_q: Query<&Transform, (With<PlayerTag>, Without<Trap>)>,
+    mut trap_q: Query<(Entity, &mut Trap, &Transform), Without<Player>>,
 ) {
     if !keyboard.just_pressed(KeyCode::KeyE) {
         return;

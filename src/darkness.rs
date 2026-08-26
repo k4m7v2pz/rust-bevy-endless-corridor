@@ -104,11 +104,54 @@ fn build_fan_mesh(radius: f32, half_angle: f32, segments: u32) -> Mesh {
 pub fn darkness_overlay(
     mut commands: Commands,
     handles: Option<Res<DarknessMeshHandles>>,
-    player_q: Query<(&Transform, &Player), With<PlayerTag>>,
-    monster_q: Query<(Entity, &Transform, &Monster)>,
-    mut ambient_q: Query<&mut Transform, (With<AmbientLight>, Without<FlashlightCone>)>,
-    mut flashlight_q: Query<&mut Transform, (With<FlashlightCone>, Without<AmbientLight>)>,
-    mut monster_light_q: Query<(Entity, &mut Transform, &MonsterLight)>,
+    player_q: Query<
+        (&Transform, &Player),
+        (
+            With<PlayerTag>,
+            Without<Monster>,
+            Without<AmbientLight>,
+            Without<FlashlightCone>,
+            Without<MonsterLight>,
+        ),
+    >,
+    monster_q: Query<
+        (Entity, &Transform, &Monster),
+        (
+            Without<Player>,
+            Without<AmbientLight>,
+            Without<FlashlightCone>,
+            Without<MonsterLight>,
+        ),
+    >,
+    mut ambient_q: Query<
+        &mut Transform,
+        (
+            With<AmbientLight>,
+            Without<FlashlightCone>,
+            Without<Player>,
+            Without<Monster>,
+            Without<MonsterLight>,
+        ),
+    >,
+    mut flashlight_q: Query<
+        &mut Transform,
+        (
+            With<FlashlightCone>,
+            Without<AmbientLight>,
+            Without<Player>,
+            Without<Monster>,
+            Without<MonsterLight>,
+        ),
+    >,
+    mut monster_light_q: Query<
+        (Entity, &mut Transform, &MonsterLight),
+        (
+            Without<Player>,
+            Without<Monster>,
+            Without<AmbientLight>,
+            Without<FlashlightCone>,
+        ),
+    >,
 ) {
     let Some(h) = handles.as_deref() else { return };
     let Ok((p_trans, player)) = player_q.get_single() else { return };

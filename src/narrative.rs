@@ -300,10 +300,12 @@ impl Plugin for NarrativePlugin {
 /// 严格节流由各事件的"持续时间"决定（本版未实现 per-event duration，
 /// 如需可在 `TrackContent` 加 `duration` 字段后扩展）。
 fn narrative_advance_system(
-    mut player: ResMut<ScriptPlayer>,
+    player: Option<ResMut<ScriptPlayer>>,
     mut advance_evts: EventWriter<NarrativeAdvanceEvent>,
     mut finished_evts: EventWriter<NarrativeFinishedEvent>,
 ) {
+    // 剧本资源未加载时直接空转（当前版本没有加载入口）
+    let Some(mut player) = player else { return };
     if !player.is_playing {
         return;
     }

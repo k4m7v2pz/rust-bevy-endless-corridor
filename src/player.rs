@@ -79,8 +79,8 @@ pub fn player_movement(
 
 pub fn player_hide_input(
     keyboard: Res<ButtonInput<KeyCode>>,
-    mut player_q: Query<(&Transform, &mut Player, &mut Sprite)>,
-    hiding_q: Query<&Transform, With<HidingSpotTag>>,
+    mut player_q: Query<(&Transform, &mut Player, &mut Sprite), Without<HidingSpotTag>>,
+    hiding_q: Query<&Transform, (With<HidingSpotTag>, Without<Player>)>,
 ) {
     if keyboard.just_pressed(KeyCode::Space) {
         if let Ok((p_trans, mut player, mut sprite)) = player_q.get_single_mut() {

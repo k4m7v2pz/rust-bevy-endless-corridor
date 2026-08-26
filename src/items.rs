@@ -92,8 +92,8 @@ pub fn item_update(
     mut commands: Commands,
     mut state: ResMut<WorldState>,
     mut next_state: ResMut<NextState<GameState>>,
-    player_q: Query<(&Transform, &Player), With<PlayerTag>>,
-    items_q: Query<(Entity, &Transform, &ItemKind)>,
+    player_q: Query<(&Transform, &Player), (With<PlayerTag>, Without<ItemKind>)>,
+    items_q: Query<(Entity, &Transform, &ItemKind), Without<PlayerTag>>,
 ) {
     let Ok((p_trans, player)) = player_q.get_single() else { return };
     let pp = p_trans.translation.xy();

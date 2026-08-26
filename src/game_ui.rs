@@ -3,7 +3,10 @@
 use bevy::prelude::*;
 use bevy_state::state::NextState;
 
-use crate::{GameState, HudTag, SaveMenuTag, GameTimer, WorldState, PendingSaveLoad};
+use crate::{
+    GameState, HudTag, PlayPhase, SaveMenuTag, SaveReturnOrigin, SaveReturnTo, GameTimer,
+    WorldState, PendingSaveLoad,
+};
 use crate::save::{SaveManager, SaveInfo, SLOT_NAME, SCENE_NAME};
 use crate::trap::Journal;
 use crate::constants::*;
@@ -16,6 +19,9 @@ pub struct GameOverScreenTag;
 
 #[derive(Component)]
 pub struct WinScreenTag;
+
+#[derive(Component)]
+pub struct PauseMenuTag;
 
 // --- 开始界面 ---
 pub fn spawn_start_screen(mut commands: Commands) {
@@ -144,6 +150,7 @@ pub fn start_screen_input(
     keyboard: Res<ButtonInput<KeyCode>>,
     mouse: Res<ButtonInput<MouseButton>>,
     mut next_state: ResMut<NextState<GameState>>,
+    mut ret: ResMut<SaveReturnTo>,
 ) {
     if keyboard.just_pressed(KeyCode::Enter)
         || mouse.just_pressed(MouseButton::Left)
@@ -151,7 +158,90 @@ pub fn start_screen_input(
         next_state.set(GameState::Playing);
     }
     if keyboard.just_pressed(KeyCode::KeyL) {
+        ret.0 = SaveReturnOrigin::Title;
         next_state.set(GameState::SaveMenu);
+    }
+}
+
+// --- 暂停菜单（ESC 覆盖层）---
+pub fn spawn_pause_menu(mut commands: Commands) {
+    let root = commands
+        .spawn((
+            NodeBundle {
+                style: Style {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    flex_direction: FlexDirection::Column,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    row_gap: Val::Px(20.0),
+                    ..default()
+                },
+                background_color: Color::srgba(0.0, 0.0, 0.0, 0.78).into(),
+                ..default()
+            },
+            PauseMenuTag,
+        ))
+        .id();
+
+    let title = commands
+        .spawn(TextBundle::from_section(
+            "暂停",
+            TextStyle {
+                font_size: 60.0,
+                color: Color::srgb(0.95, 0.95, 1.0),
+                ..default()
+            },
+        ))
+        .id();
+
+    let hint1 = commands
+        .spawn(TextBundle::from_section(
+            "1 / ESC: 继续游戏",
+            TextStyle {
+                font_size: 26.0,
+                color: Color::srgb(0.7, 0.9, 1.0),
+                ..default()
+            },
+        ))
+        .id();
+    let hint2 = commands
+        .spawn(TextBundle::from_section(
+            "2 / S: 存档 · 读档",
+            TextStyle {
+                font_size: 26.0,
+                color: Color::srgb(1.0, 0.9, 0.5),
+                ..default()
+            },
+        ))
+        .id();
+    let hint3 = commands
+        .spawn(TextBundle::from_section(
+            "3 / Q: 返回主菜单",
+            TextStyle {
+                font_size: 26.0,
+                color: Color::srgb(0.85, 0.75, 0.65),
+                ..default()
+            },
+        ))
+        .id();
+
+    commands.entity(root).push_children(&[title, hint1, hint2, hint3]);
+}
+
+pub fn pause_menu_input(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut next_state: ResMut<NextState<GameState>>,
+    mut next_phase: ResMut<NextState<PlayPhase>>,
+    mut ret: ResMut<SaveReturnTo>,
+) {
+    if keyboard.just_pressed(KeyCode::Escape) || keyboard.just_pressed(KeyCode::Digit1) {
+        next_phase.set(PlayPhase::Running);
+    } else if keyboard.just_pressed(KeyCode::Digit2) || keyboard.just_pressed(KeyCode::KeyS) {
+        ret.0 = SaveReturnOrigin::Game;
+        next_state.set(GameState::SaveMenu);
+    } else if keyboard.just_pressed(KeyCode::Digit3) || keyboard.just_pressed(KeyCode::KeyQ) {
+        next_state.set(GameState::StartScreen);
     }
 }
 
@@ -486,9 +576,13 @@ pub fn save_menu_input(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut next_state: ResMut<NextState<GameState>>,
     mut pending_load: ResMut<PendingSaveLoad>,
+    ret: Res<SaveReturnTo>,
 ) {
     if keyboard.just_pressed(KeyCode::Escape) {
-        next_state.set(GameState::StartScreen);
+        match ret.0 {
+            SaveReturnOrigin::Title => next_state.set(GameState::StartScreen),
+            SaveReturnOrigin::Game => next_state.set(GameState::Playing),
+        }
     }
     
     // 回车加载第一个存档

@@ -171,15 +171,17 @@ pub fn setup_notification_ui(mut commands: Commands, ui_camera_query: Query<Enti
         .with_children(|parent| {
             for i in 0..MAX_VISIBLE_NOTIFICATIONS {
                 parent.spawn((
-                    TextBundle::from_section(
-                        "",
-                        TextStyle {
-                            font_size: 15.0,
-                            color: Color::WHITE,
-                            ..default()
-                        },
-                    ),
-                    Visibility::Hidden,  // 默认隐藏，有内容才显
+                    TextBundle {
+                        visibility: Visibility::Hidden, // 默认隐藏，有内容才显
+                        ..TextBundle::from_section(
+                            "",
+                            TextStyle {
+                                font_size: 15.0,
+                                color: Color::WHITE,
+                                ..default()
+                            },
+                        )
+                    },
                     NotificationText(i),
                 ));
             }

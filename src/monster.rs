@@ -155,8 +155,8 @@ pub fn spawn_monsters(commands: &mut Commands, map: &GameMap) {
 pub fn monster_ai(
     time: Res<Time>,
     map: Res<GameMap>,
-    player_q: Query<(&Transform, &Player), With<PlayerTag>>,
-    mut monster_q: Query<(&mut Transform, &mut Monster, &mut Sprite)>,
+    player_q: Query<(&Transform, &Player), (With<PlayerTag>, Without<Monster>)>,
+    mut monster_q: Query<(&mut Transform, &mut Monster, &mut Sprite), Without<PlayerTag>>,
 ) {
     let Ok((p_trans, player)) = player_q.get_single() else { return };
     let player_pos = p_trans.translation.xy();
@@ -212,8 +212,8 @@ fn generate_search_points(center: Vec2) -> Vec<Vec2> {
 
 pub fn check_player_monster_collision(
     mut next_state: ResMut<NextState<GameState>>,
-    player_q: Query<(&Transform, &Player)>,
-    monster_q: Query<&Transform, With<MonsterTag>>,
+    player_q: Query<(&Transform, &Player), Without<MonsterTag>>,
+    monster_q: Query<&Transform, (With<MonsterTag>, Without<Player>)>,
 ) {
     let Ok((p_trans, player)) = player_q.get_single() else { return };
     if player.is_hiding { return; }
