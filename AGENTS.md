@@ -14,7 +14,7 @@
 
 - **不得包含** 个人邮箱、真实姓名、私钥、token、密码、私人服务器地址、代理端口（如本机 socks 7890）、内部 IP。
 - **不得包含** 未公开的私人仓库地址。公开开源仓库地址可保留。
-- **commit message** 里不要嵌入远端 URL、不要嵌入用户私人邮箱；trailer 统一用 `Co-Authored-By: Doubao <noreply@doubao.com>`（署名如实标注实际 AI Agent 名字）。
+- **commit message** 里不要嵌入远端 URL、不要嵌入用户私人邮箱；trailer 的 `Co-Authored-By` **如实标注实际执行任务的 AI Agent 名字**（是哪个 Agent 就写哪个，不固定某一家；例如豆包写 `Doubao`、AtomCode 写 `AtomCode (GLM-5.2)`）。
 - **文档里** 若要举例远端、邮箱、端口，用占位符（`<example@example.com>`、`<proxy-port>`、`<your-remote>`）。
 
 ### 2. 用 .gitignore 忽略不该进库的本地数据
@@ -50,10 +50,11 @@ Agent 在执行 `git commit` 前必须：
 
 - 首行：`<type>: <概要>`，type 用 `feat` / `fix` / `docs` / `refactor` / `chore` / `test`
 - 空行后正文：要点列表，说明做了什么、为什么
-- 末尾 trailer（空行隔开）：
+- 末尾 trailer（空行隔开），`Co-Authored-By` 填写**实际执行本次提交的 AI Agent 名**：
   ```
-  Co-Authored-By: Doubao <noreply@doubao.com>
+  Co-Authored-By: <实际执行任务的AI Agent名> <noreply@<对应域名>>
   ```
+  例：豆包 → `Co-Authored-By: Doubao <noreply@doubao.com>`；AtomCode → `Co-Authored-By: AtomCode (GLM-5.2) <noreply@atomgit.com>`
 - 用 `git commit -m "$(cat <<'EOF' ... EOF)"` heredoc 保空行；`--amend` / `revert` 不加 trailer
 
 ### 3. 推送前确认
