@@ -3,7 +3,7 @@ name = "the_endless_corridor"
 version = "0.1.0"
 edition = "2021"
 description = "无尽回廊 - A survival horror 2D game rebuilt in Rust Bevy"
-license = "Unlicense"
+license = "MulanPSL-2.0 OR Unlicense"
 
 [dependencies]
 bevy = { version = "0.14", default-features = false, features = [
